@@ -1,11 +1,11 @@
 import operator
 
 def main():
-    Features, ridedata = parseData("c_no_hurry.in")
+    Features, ridedata = parseData("b_should_be_easy.in")
     rides = []
     i = 0
     for ride in ridedata:
-        rides.append(Ride(ride, i))
+        rides.append(Ride(ride, i, int(Features[4])))
         i += 1
     drivers = []
     i =0
@@ -29,7 +29,7 @@ def sortRides(rides,attr ):
 
 
 class Ride:
-    def __init__(self,data, ident):
+    def __init__(self,data, ident,bonus):
         self.startTime = int(data[4])
         self.endTime = int(data[5])
         self.xStart = int(data[0])
@@ -40,6 +40,8 @@ class Ride:
         self.MinSteps = int(self.numSteps())
         self.lateStart = int(self.latestStart())
         self.claimed = False
+        self.currentScore = self.MinSteps + bonus
+        self.pickedUp = False
 
     def numSteps(self):
         return (abs(self.xStart - self.xFinish) + abs(self.yStart - self.yFinish))
@@ -53,6 +55,19 @@ class Ride:
             return time
         else:
             return -1
+    def updateScore(self, time):
+        if time-1  == self.startTime and self.pickedUp == False:
+            self.currentScore = self.MinSteps
+
+    def getWorth(self,stepsTo, time):
+        if time > self.startTime and time +self.MinSteps + stepsTo <= self.endTime:
+            return self.MinSteps
+        elif time +stepsTo <= self.startTime:
+            return self.currentScore - (self.startTime - time- stepsTo) #de-incentivise a long wait
+        else:
+            return 0
+
+
 class Driver:
     def __init__(self,ref,x,y):
         self.uRef = ref
@@ -70,7 +85,7 @@ class Driver:
         self.x = Location[0]
         self.y = Location[1]
 
-    def takeStep(self): #move the driver to its intended place
+    def takeStep(self, time): #move the driver to its intended place
         if self.x != self.intendedX:
             if self.x > self.intendedX:
                 self.x -= 1
@@ -84,7 +99,7 @@ class Driver:
                 self.y += 1
             self.stepsTaken += 1
         elif (self.x == self.intendedX) and (self.y == self.intendedY):
-            if (self.pickedUp == False and self.claimedRide != -1):
+            if (self.pickedUp == False and self.claimedRide != -1) and(time >= self.ride.startTime) :
                 self.setFinish()
             elif (self.pickedUp ==True and self.claimedRide != -1):
                 self.finishRide()
@@ -135,8 +150,13 @@ def moving(drivers,rides):
     notFinished = True
     time = 0
     while notFinished:
-        rides = removeUndoable(drivers,rides,time)
-        rides = sortRides(rides, 'lateStart')
+        whosFree = []
+        for driver in drivers:
+            if driver.claimedRide == -1:
+                whosFree.append(driver)
+        if len(whosFree) != 0:
+            rides = removeUndoable(drivers,rides,time)
+            rides = sortRides(rides, 'lateStart')
         for driver in drivers:
             if driver.claimedRide == -1:
                 length = len(rides)
@@ -151,11 +171,11 @@ def moving(drivers,rides):
                         escapeClause = True
             # for driver in drivers:
             #     print driver.claimedRide
-            driver.takeStep()
+            driver.takeStep(time)
         time += 1
         if len(rides)== 0:
             notFinished = False
-    saveFile = open("c.txt","w+")
+    saveFile = open("b2.txt","w+")
     message = ""
     for driver in drivers:
         message += driver.getOutputLine()+ "\n"
